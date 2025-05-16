@@ -2,12 +2,12 @@ name: smart_invoice_app
 description: A Smart Invoice Flutter app.
 
 environment:
-  sdk: '^3.7.0'
+  sdk: '>=3.7.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-  file_picker: 10.1.9
+  file_picker: ^10.1.9
   flutter_lints: ^3.0.0
   google_mlkit_text_recognition: ^0.11.0
   image_picker: ^1.0.7
@@ -20,6 +20,8 @@ dependencies:
   csv: ^5.0.2
   intl: ^0.19.0
   share_plus: ^7.2.1
+  syncfusion_flutter_pdf: ^25.1.39
+  image: ^4.1.7
 
 dev_dependencies:
   flutter_test:
