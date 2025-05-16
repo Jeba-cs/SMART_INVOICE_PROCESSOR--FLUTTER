@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:hive/hive.dart';
 import '../services/storage_service.dart';
 import '../models/invoice.dart';
 import '../services/csv_export_service.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'edit_invoice_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
@@ -69,8 +71,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       return;
     }
     try {
-      // Save to Downloads directory for user visibility
-      final downloadsDir = await getExternalStorageDirectory(); // fallback if getDownloadsDirectory not available
+      final downloadsDir = await getDownloadsDirectory();
       final formattedDate = DateFormat('yyyy-MM-dd_HH-mm').format(DateTime.now());
       final path = '${downloadsDir!.path}/INVOICE_$formattedDate.csv';
       final savedPath = await CsvExportService().exportInvoicesToCustomCsv(selected, customPath: path);
@@ -184,25 +185,46 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       subtitle: Text(
                         'Vendor: ${invoice.vendor}\nCustomer: ${invoice.customer}\nTotal: ${invoice.total}\nTime: ${DateFormat('HH:mm').format(invoice.date)}',
                       ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.info_outline, color: Colors.blue),
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (_) => AlertDialog(
-                              title: const Text('Invoice Details'),
-                              content: SingleChildScrollView(
-                                child: Text(invoice.jsonData.toString()),
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('Close'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit),
+                            onPressed: () async {
+                              final updatedInvoice = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => EditInvoiceScreen(invoice: invoice),
                                 ),
-                              ],
-                            ),
-                          );
-                        },
+                              );
+                              if (updatedInvoice != null) {
+                                final box = await Hive.openBox<Invoice>('invoices');
+                                await box.put(invoice.key, updatedInvoice);
+                                _loadInvoices();
+                              }
+                            },
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.info_outline),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title: const Text('Invoice Details'),
+                                  content: SingleChildScrollView(
+                                    child: Text(invoice.jsonData.toString()),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Close'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     );
                   }),
