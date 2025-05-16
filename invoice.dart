@@ -37,4 +37,30 @@ class Invoice extends HiveObject {
     required this.rawText,
     required this.jsonData,
   });
+
+  Invoice copyWith({
+    String? id,
+    DateTime? date,
+    String? vendor,
+    String? customer,
+    List<Map<String, dynamic>>? lineItems,
+    double? subtotal,
+    double? tax,
+    double? total,
+    String? rawText,
+    Map<String, dynamic>? jsonData,
+  }) {
+    return Invoice(
+      id: id ?? this.id,
+      date: date ?? this.date,
+      vendor: vendor ?? this.vendor,
+      customer: customer ?? this.customer,
+      lineItems: lineItems ?? this.lineItems,
+      subtotal: subtotal ?? this.subtotal,
+      tax: tax ?? this.tax,
+      total: total ?? this.total,
+      rawText: rawText ?? this.rawText,
+      jsonData: jsonData ?? this.jsonData,
+    );
+  }
 }
