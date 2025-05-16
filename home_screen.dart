@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/ocr_service.dart';
 import '../services/deepseek_service.dart';
-import '../models/invoice.dart';
 import '../widgets/settings_drawer.dart';
-import 'result_screen.dart';
 import 'multi_result_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -16,9 +15,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  List<File> _selectedImages = [];
+  final List<File> _selectedImages = [];
   bool _isProcessing = false;
-
   final ocrService = OCRService();
   final deepSeekService = DeepSeekService();
 
@@ -29,8 +27,55 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     if (result != null) {
       setState(() {
-        _selectedImages = result.paths.whereType<String>().map((p) => File(p)).toList();
+        _selectedImages.clear();
+        _selectedImages.addAll(result.paths.whereType<String>().map((p) => File(p)));
       });
+    }
+  }
+
+  Future<void> _captureImage() async {
+    final image = await ImagePicker().pickImage(source: ImageSource.camera);
+    if (image != null) {
+      setState(() {
+        _selectedImages.add(File(image.path));
+      });
+    }
+  }
+
+  Future<void> _pickPdf() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      allowMultiple: false,
+    );
+    if (result != null && result.files.single.path != null) {
+      File pdfFile = File(result.files.single.path!);
+      setState(() => _isProcessing = true);
+      try {
+        String pdfText = await ocrService.extractTextFromPdf(pdfFile);
+        Map<String, dynamic> invoiceJson;
+        try {
+          invoiceJson = await deepSeekService.hybridExtract(pdfText);
+        } catch (e) {
+          _showErrorDialog('Processing failed: $e');
+          setState(() => _isProcessing = false);
+          return;
+        }
+        if (!mounted) return;
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => MultiResultScreen(results: [
+            {
+              'rawText': pdfText,
+              'invoiceJson': invoiceJson,
+              'imageFile': null,
+              'pdfFile': pdfFile,
+            }
+          ]),
+        ));
+      } catch (e) {
+        _showErrorDialog('PDF processing failed: $e');
+      }
+      setState(() => _isProcessing = false);
     }
   }
 
@@ -41,7 +86,18 @@ class _HomeScreenState extends State<HomeScreen> {
     for (final image in _selectedImages) {
       try {
         String rawText = await ocrService.extractText(image);
-        Map<String, dynamic> invoiceJson = await deepSeekService.hybridExtract(rawText);
+        Map<String, dynamic> invoiceJson;
+        try {
+          invoiceJson = await deepSeekService.hybridExtract(rawText);
+        } catch (e) {
+          _showErrorDialog('Processing failed: $e');
+          invoiceResults.add({
+            'rawText': rawText,
+            'invoiceJson': {'error': e.toString()},
+            'imageFile': image,
+          });
+          continue;
+        }
         invoiceResults.add({
           'rawText': rawText,
           'invoiceJson': invoiceJson,
@@ -56,11 +112,57 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
     setState(() => _isProcessing = false);
-    if (context.mounted) {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => MultiResultScreen(results: invoiceResults),
-      ));
-    }
+    if (!mounted) return;
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => MultiResultScreen(results: invoiceResults),
+    ));
+  }
+
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.error, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Error', style: TextStyle(color: Colors.red)),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRectButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: 170,
+      height: 60,
+      child: ElevatedButton.icon(
+        icon: Icon(icon, color: Colors.white, size: 28),
+        label: Text(
+          label,
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 4,
+          alignment: Alignment.centerLeft,
+        ),
+        onPressed: onTap,
+      ),
+    );
   }
 
   @override
@@ -95,14 +197,29 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ElevatedButton.icon(
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Upload Invoice Images'),
-              onPressed: _pickImages,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade700,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(200, 48),
+            // Top row with two buttons
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildRectButton(
+                  icon: Icons.upload_file,
+                  label: 'Upload Images',
+                  onTap: _pickImages,
+                ),
+                _buildRectButton(
+                  icon: Icons.camera_alt,
+                  label: 'Capture Photo',
+                  onTap: _captureImage,
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            // Centered PDF button
+            Center(
+              child: _buildRectButton(
+                icon: Icons.picture_as_pdf,
+                label: 'Upload PDF Invoice',
+                onTap: _pickPdf,
               ),
             ),
             if (_selectedImages.isNotEmpty)
@@ -112,13 +229,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 100,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
-                    children: _selectedImages.map((img) => Padding(
+                    children: _selectedImages
+                        .map((img) => Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
                         child: Image.file(img, height: 80),
                       ),
-                    )).toList(),
+                    ))
+                        .toList(),
                   ),
                 ),
               ),
@@ -140,5 +259,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
-// You will also need to create a MultiResultScreen to show results for multiple invoices!
