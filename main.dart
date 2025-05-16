@@ -9,6 +9,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
   Hive.registerAdapter(InvoiceAdapter());
+  await Hive.openBox<Invoice>('invoices');
   runApp(const SmartInvoiceApp());
 }
 
@@ -20,7 +21,10 @@ class SmartInvoiceApp extends StatelessWidget {
     return MaterialApp(
       title: 'Smart Invoice Processor',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue.shade700,
+          brightness: Brightness.light,
+        ),
         useMaterial3: true,
       ),
       initialRoute: '/',
@@ -29,6 +33,12 @@ class SmartInvoiceApp extends StatelessWidget {
         '/history': (context) => const HistoryScreen(),
         '/settings': (context) => const SettingsScreen(),
       },
+      onUnknownRoute: (settings) => MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(title: const Text('Error')),
+          body: const Center(child: Text('Page not found')),
+        ),
+      ),
     );
   }
 }
