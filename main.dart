@@ -3,6 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'models/invoice.dart';
 import 'screens/home_screen.dart';
 import 'screens/history_screen.dart';
+import 'screens/invoices_page.dart'; // <-- Add this import
 import 'screens/settings_screen.dart';
 
 void main() async {
@@ -31,6 +32,7 @@ class SmartInvoiceApp extends StatelessWidget {
       routes: {
         '/': (context) => const HomeScreen(),
         '/history': (context) => const HistoryScreen(),
+        '/invoices': (context) => const InvoicesPage(), // <-- Add this line
         '/settings': (context) => const SettingsScreen(),
       },
       onUnknownRoute: (settings) => MaterialPageRoute(
