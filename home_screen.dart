@@ -177,6 +177,11 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Invoice History',
           ),
           IconButton(
+            icon: const Icon(Icons.receipt_long),
+            onPressed: () => Navigator.pushNamed(context, '/invoices'),
+            tooltip: 'Invoices',
+          ),
+          IconButton(
             icon: const Icon(Icons.settings),
             onPressed: () => Navigator.pushNamed(context, '/settings'),
             tooltip: 'Settings',
